@@ -1,0 +1,15 @@
+{
+  "name": "simo-gtm-slack-test",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {},
+  "author": "Simo Ahava",
+  "license": "Apache",
+  "dependencies": {
+    "@google-cloud/storage": "^4.3.1",
+    "@slack/webhook": "^5.0.2",
+    "googleapis": "^47.0.0",
+    "pretty-ms": "^6.0.0"
+  }
+}
