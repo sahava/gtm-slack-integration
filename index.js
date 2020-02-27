@@ -53,7 +53,7 @@ const validateConfig = () => {
   if (config.gcs && !config.gcs.hasOwnProperty('fileName')) msg += 'config_missing_gcs_fileName;';
   if (!config.hasOwnProperty('slackOutput')) msg += 'config_missing_slackOutput;';
   if (config.slackOutput && config.slackOutput.length === 0) msg += 'config_missing_slackOutput_items;';
-  if (config.slackOutput && config.slackOutput.filter(s => s.slackWebhookUrl && s.gtmContainers).length !== config.slackOutput.length) msg += 'invalid_items_in_slackOutput;';
+  if (config.slackOutput && config.slackOutput.filter(s => s['slackWebhookUrl'] && s['gtmContainers']).length !== config.slackOutput.length) msg += 'invalid_items_in_slackOutput;';
   return {
     error: msg !== '',
     errorMessage: msg
@@ -107,7 +107,7 @@ exports.getGtmInfo = async () => {
   const destination = `/tmp/${fileName}`;
   let gtmState = {};
 
-  console.log('Loading state from Cloud Storage.')
+  console.log('Loading state from Cloud Storage.');
   try {
     await storage
       .bucket(bucketName)
@@ -129,10 +129,11 @@ exports.getGtmInfo = async () => {
     auth: authClient
   });
 
-  for (const slack of config.slackOutput) {
-    log(`Starting operation for webhook URL ${slack.slackWebhookUrl}`);
-    webhooks[slack.slackWebhookUrl] = new IncomingWebhook((slack.slackWebhookUrl));
-    for (const gtmContainer of slack.gtmContainers) {
+  for (const slack of config['slackOutput']) {
+    const webHookUrl = slack['slackWebhookUrl'];
+    log(`Starting operation for webhook URL ${webHookUrl}`);
+    webhooks[webHookUrl] = new IncomingWebhook(webHookUrl);
+    for (const gtmContainer of slack['gtmContainers']) {
       const [accountId, containerId] = gtmContainer.split('_');
       log(`${accountId}_${containerId}: Checking version state.`);
 
@@ -155,7 +156,7 @@ exports.getGtmInfo = async () => {
       }
       if (gtmState[accountId][containerId]['containerVersionId'] !== res.data.containerVersionId) {
         log(`${accountId}_${containerId}: New version published since previous entry, notifying Slack.`);
-        await sendSlackMessage(gtmState[accountId][containerId]['lastChecked'], res.data, slack.slackWebhookUrl);
+        await sendSlackMessage(gtmState[accountId][containerId]['lastChecked'], res.data, webHookUrl);
         // Update the latest version in the state object to the new, published version ID
         gtmState[accountId][containerId]['containerVersionId'] = res.data.containerVersionId;
       } else {
