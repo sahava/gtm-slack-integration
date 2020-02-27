@@ -80,7 +80,7 @@ const sendSlackMessage = async (lastChecked, data, webhookUrl) => {
       author_name: `${data.container.publicId}: ${data.container.name}`,
       title: `${data.containerVersionId}: ${data.name || '(no name)'}`,
       title_link: data.tagManagerUrl,
-      text: `New published version found since last check (${prettyMs(delta)} ago)`,
+      text: `New published version found since last check (${prettyMs(delta)} ago).`,
       mrkdwn_in: ['text'],
       footer: 'by GTM Tools',
       ts: now / 1000
