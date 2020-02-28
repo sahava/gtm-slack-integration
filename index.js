@@ -89,6 +89,59 @@ const sendSlackMessage = async (lastChecked, data, webhookUrl) => {
 };
 // [END sendSlackMessage]
 
+// [START addContainerToState]
+/**
+ * Update the state object with the accountId and containerId if not present.
+ * @param gtmState
+ * @param accountId
+ * @param containerId
+ * @returns {object} The updated state object.
+ */
+const addContainerToState = (gtmState, accountId, containerId) => {
+  // Account ID missing, adding it to state
+  if (!gtmState[accountId]) {
+    gtmState[accountId] = {};
+  }
+
+  // Container ID missing, adding it to state
+  gtmState[accountId][containerId] = gtmState[accountId][containerId] || {};
+  return gtmState;
+};
+// [END addContainerToState]
+
+// [START checkPublishedVersionIdAgainstState]
+/**
+ * Fetch live version from GTM API and check the version ID in the live version against the one in the state object.
+ * @param {object} tagmanager The service object used with the GTM API
+ * @param {string} webHookUrl Slack incoming webhook URL
+ * @param {object} gtmState The state object
+ * @param {string} accountId GTM account ID
+ * @param {string} containerId GTM container ID
+ */
+const checkPublishedVersionIdAgainstState = async (tagmanager, webHookUrl, gtmState, accountId, containerId) => {
+  // Fetch live version from API
+  const res = await tagmanager.accounts.containers.versions.live({
+    parent: `accounts/${accountId}/containers/${containerId}`
+  });
+
+  if (!gtmState[accountId][containerId]['containerVersionId']) {
+    // Container hasn't been previously polled
+    log(`${accountId}_${containerId}: Previous entry missing, setting the current version as the new entry.`);
+  } else if (gtmState[accountId][containerId]['containerVersionId'] !== res.data.containerVersionId) {
+    // Container version has changed between live version and the one in state
+    log(`${accountId}_${containerId}: New version published since previous entry, notifying Slack.`);
+    await sendSlackMessage(gtmState[accountId][containerId]['lastChecked'], res.data, webHookUrl);
+  } else {
+    // Container version has stayed the same
+    log(`${accountId}_${containerId}: Published version same as previous entry, or new entry altogether.`);
+  }
+  // Update the latest version in the state object to the new, published version ID
+  gtmState[accountId][containerId]['containerVersionId'] = res.data.containerVersionId;
+
+  return gtmState;
+};
+// [END checkPublishedVersionIdAgainstState]
+
 // [START getGtmInfo]
 /**
  * Entry point for the Cloud Function. Triggered with a Pub/Sub Topic.
@@ -137,31 +190,12 @@ exports.getGtmInfo = async () => {
       const [accountId, containerId] = gtmContainer.split('_');
       log(`${accountId}_${containerId}: Checking version state.`);
 
-      const res = await tagmanager.accounts.containers.versions.live({
-        parent: `accounts/${accountId}/containers/${containerId}`
-      });
+      // Make sure the container has an entry in the state object
+      gtmState = addContainerToState(gtmState, accountId, containerId);
 
-      // Account ID not found in the state object, creating a new one
-      if (!gtmState[accountId]) {
-        gtmState[accountId] = {};
-      }
+      // Live version ID check against stored ID
+      gtmState = await checkPublishedVersionIdAgainstState(tagmanager, webHookUrl, gtmState, accountId, containerId);
 
-      // Container ID not found within the account ID of the state object, creating a new one
-      if (!gtmState[accountId][containerId]) {
-        log(`${accountId}_${containerId}: Previous entry missing, setting the current version as the new entry.`);
-        // Storing the latest live version ID as the version ID in the state object for this container
-        gtmState[accountId][containerId] = {
-          containerVersionId: res.data.containerVersionId
-        };
-      }
-      if (gtmState[accountId][containerId]['containerVersionId'] !== res.data.containerVersionId) {
-        log(`${accountId}_${containerId}: New version published since previous entry, notifying Slack.`);
-        await sendSlackMessage(gtmState[accountId][containerId]['lastChecked'], res.data, webHookUrl);
-        // Update the latest version in the state object to the new, published version ID
-        gtmState[accountId][containerId]['containerVersionId'] = res.data.containerVersionId;
-      } else {
-        log(`${accountId}_${containerId}: Published version same as previous entry, or new entry altogether.`);
-      }
       // Update the last checked time for the container in question to the current time
       gtmState[accountId][containerId]['lastChecked'] = new Date().getTime();
     }
