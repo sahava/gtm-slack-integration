@@ -18,4 +18,4 @@ Here are the things you need to have in order for the setup to work:
 It's also recommended to install the [`gcloud`](https://cloud.google.com/pubsub/docs/quickstart-cli) command-line tool.
 
 ## How to set it up
-The instructions for setting up the integration are detailed in this blog post (FORTHCOMING).
+The instructions for setting up the integration are detailed in [this blog post](https://www.simoahava.com/analytics/create-slack-notification-system-google-tag-manager-changes/)..
